@@ -1,0 +1,191 @@
+library(FinancialMath)
+library(shiny)
+library(markovchain)
+library(Matrix)
+library(xtable)
+library(magrittr)
+library(expm)
+library(diagram)
+library(pracma)
+library(RQuantLib)
+
+
+ui <- fluidPage(
+  
+ 
+  titlePanel("Bond Analytics"),
+  
+  sidebarLayout(
+    
+    sidebarPanel(
+      
+      numericInput(inputId = "couponrate",
+                  label = "Annual Coupon Rate % :",
+                  value = 5, min = 0, max = 100),
+      selectInput(inputId = "dur", "Select Duration:", choices = c("Macaulay", "Modified", "Simple")),
+      
+     
+
+      dateInput("edate", "Effective Date"),
+      dateInput("mdate", "Maturity Date", value = "11/18/2020"),
+      
+      numericInput("par", "Par Value: $",1000)
+      ),
+      
+    
+    mainPanel(
+      tableOutput("metrics"),
+      tableOutput("cf")
+      
+      
+      
+    )
+  )
+ )
+
+
+
+server <- function(input, output) {
+
+
+  output$cf <- renderTable({
+    
+    
+    effective <- as.Date(input$edate)
+    maturity <- as.Date(input$mdate)
+    dur = input$dur
+    
+    
+    bond <- list(settlementDays=1,
+                 issueDate= effective,
+                 faceAmount=input$par,
+                 accrualDayCounter='Thirty360',
+                 paymentConvention='Unadjusted')
+    
+    
+    schedule <- list(effectiveDate= effective,
+                     maturityDate= maturity,
+                     period='Annual',
+                     calendar='UnitedStates/GovernmentBond',
+                     businessDayConvention='Unadjusted',
+                     terminationDateConvention='Unadjusted',
+                     dateGeneration='Forward',
+                     endOfMonth=1)
+    
+    
+    calc=list(dayCounter='Actual360',
+              compounding='Compounded',
+              freq='Annual',
+              durationType=dur)
+    
+    coupon.rate <- c(input$couponrate/100)
+    
+    params <- list(tradeDate=as.Date('2002-2-15'),
+                   settleDate=as.Date('2002-2-19'),
+                   dt=.25,
+                   interpWhat="discount",
+                   interpHow="loglinear")
+    setEvaluationDate(as.Date("2004-11-22"))
+    
+    
+    
+    
+    discountCurve.flat <- DiscountCurve(params, list(flat=0.05))
+    
+    
+    
+    test <- FixedRateBond(bond,
+                          coupon.rate,
+                          schedule,
+                          calc,
+                          discountCurve=discountCurve.flat)
+    
+    
+    table <- as.data.frame(test$cashFlow)
+    
+    print(table)
+    
+  
+    
+    
+   
+    
+    
+  })
+  
+     
+    output$metrics <- renderTable({
+      
+      
+      
+      
+      
+      effective <- as.Date(input$edate)
+      maturity <- as.Date(input$mdate)
+      dur = input$dur
+      
+      bond <- list(settlementDays=1,
+                   issueDate= effective,
+                   faceAmount=input$par,
+                   accrualDayCounter='Thirty360',
+                   paymentConvention='Unadjusted')
+      
+      
+      schedule <- list(effectiveDate= effective,
+                       maturityDate= maturity,
+                       period='Annual',
+                       calendar='UnitedStates/GovernmentBond',
+                       businessDayConvention='Unadjusted',
+                       terminationDateConvention='Unadjusted',
+                       dateGeneration='Forward',
+                       endOfMonth=1)
+      
+      
+      calc=list(dayCounter='Actual360',
+                compounding='Compounded',
+                freq='Annual',
+                durationType=dur)
+      
+      coupon.rate <- c(input$couponrate/100)
+      
+      params <- list(tradeDate=as.Date('2002-2-15'),
+                     settleDate=as.Date('2002-2-19'),
+                     dt=.25,
+                     interpWhat="discount",
+                     interpHow="loglinear")
+      setEvaluationDate(as.Date("2004-11-22"))
+      
+      
+      
+      
+      discountCurve.flat <- DiscountCurve(params, list(flat=0.05))
+      
+      
+      
+      test <- FixedRateBond(bond,
+                            coupon.rate,
+                            schedule,
+                            calc,
+                            discountCurve=discountCurve.flat)
+      
+      
+      metrics <- data.frame(test$NPV, test$yield*100, test$duration)
+      
+      colnames(metrics) <- c("NPV $", "Yield %", "Duration")
+      
+      print(metrics)
+      
+      
+      
+    })
+        
+        
+    
+      
+      
+    }
+    
+  
+
+
+shinyApp(ui = ui, server = server)
